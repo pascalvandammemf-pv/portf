@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grand Livre — Suivi Degiro</title>
+</head>
+<body style="margin:0;">
+<div id="app" class="ledger-app">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    .ledger-app {
+      --page: #2B2723; --card: #3A3530; --card-2: #453F39; --hair: #574F46;
+      --ink: #EEE8DD; --ink-dim: #B3A99B; --brass: #D4A94E; --sage: #8AAF95; --rust: #C97456;
+      --gain: #6FBF7F; --loss: #E8846A;
+      font-family: 'IBM Plex Sans', sans-serif; background: var(--page); color: var(--ink);
+      min-height: 100vh; padding: 28px 20px 60px; box-sizing: border-box;
+    }
+    .ledger-app * { box-sizing: border-box; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+
+    .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom: 28px; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .brand-mark { width:32px; height:32px; border:1.5px solid var(--brass); border-radius:3px; display:flex; align-items:center; justify-content:center; color:var(--brass); font-family:'Fraunces',serif; font-weight:600; }
+    .brand-title { font-family:'Fraunces', serif; font-size:19px; letter-spacing:0.3px; color:var(--ink); }
+    .brand-sub { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-dim); letter-spacing:0.5px; text-transform:uppercase; }
+
+    .uploads { display:flex; gap:8px; flex-wrap:wrap; }
+    .upload-btn {
+      font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.4px; text-transform:uppercase;
+      background: var(--card); border:1px solid var(--hair); color: var(--ink);
+      padding:8px 12px; border-radius:3px; cursor:pointer; display:flex; align-items:center; gap:6px;
+      transition: border-color .15s ease, color .15s ease;
+    }
+    .upload-btn:hover { border-color: var(--brass); color: var(--brass); }
+    .upload-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+    .hero { border:1px solid var(--hair); border-radius:6px; background: var(--card); padding: 28px 26px; margin-bottom: 22px; box-shadow: 0 1px 2px rgba(29,36,48,0.06); }
+    .hero-label { font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:1px; color: var(--ink-dim); margin-bottom:6px; }
+    .hero-value { font-family:'Fraunces', serif; font-weight:600; font-size:44px; line-height:1.1; color:var(--ink); }
+    .hero-row { display:flex; gap:28px; margin-top:18px; flex-wrap:wrap; }
+    .hero-stat-label { font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--ink-dim); }
+    .hero-stat-value { font-family:'IBM Plex Mono', monospace; font-size:15px; margin-top:3px; color:var(--ink); }
+    .pos { color: var(--gain); font-weight: 600; }
+    .neg { color: var(--loss); font-weight: 600; }
+
+    .tabs { display:flex; gap:2px; border-bottom:1px solid var(--hair); margin-bottom:22px; }
+    .tab-btn {
+      background:none; border:none; color: var(--ink-dim); font-family:'IBM Plex Sans', sans-serif; font-size:13.5px;
+      padding:10px 16px; cursor:pointer; display:flex; align-items:center; gap:7px; border-bottom:2px solid transparent; margin-bottom:-1px;
+    }
+    .tab-btn.active { color: var(--ink); border-bottom-color: var(--brass); }
+    .tab-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    .card { border:1px solid var(--hair); border-radius:6px; background: var(--card); padding:20px; margin-bottom:18px; box-shadow: 0 1px 2px rgba(29,36,48,0.05); }
+    .card-title { font-family:'Fraunces', serif; font-size:17px; margin-bottom: 14px; color:var(--ink); }
+
+    table.ledger { width:100%; border-collapse: collapse; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink); }
+    table.ledger th { text-align:left; font-family:'IBM Plex Sans', sans-serif; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-dim); padding-bottom:8px; border-bottom:1px solid var(--hair); font-weight:600; }
+    table.ledger td { padding:9px 0; border-bottom:1px solid var(--card-2); vertical-align:middle; }
+    table.ledger td.num, table.ledger th.num { text-align:right; }
+    .product-name { font-family:'IBM Plex Sans', sans-serif; font-size:13px; color:var(--ink); }
+    .isin { color: var(--ink-dim); font-size: 10.5px; }
+    .cat-tag { display:inline-block; font-family:'IBM Plex Sans',sans-serif; font-size:10px; padding:2px 7px; border-radius:10px; border:1px solid var(--hair); background: var(--card-2); color:var(--ink-dim); }
+
+    .empty { text-align:center; padding: 30px 10px; color: var(--ink-dim); }
+    .empty-title { font-family:'Fraunces', serif; font-size:16px; color: var(--ink); margin-bottom:6px; }
+
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); border:1px solid var(--brass); color:var(--card); padding:10px 18px; border-radius:4px; font-family:'IBM Plex Mono', monospace; font-size:12px; z-index:50; opacity:0; pointer-events:none; transition:opacity .2s ease; }
+    .toast.show { opacity:1; }
+
+    .chart-wrap { position:relative; height:260px; }
+    .chart-wrap.small { height:230px; }
+    .legend { display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:14px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink); }
+    .swatch { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+
+    @media (max-width: 560px) {
+      .hero-value { font-size: 32px; }
+      .hero-row { gap: 18px; }
+      table.ledger { font-size: 11px; }
+      .isin { display:none; }
+    }
+  </style>
+
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">GL</div>
+        <div>
+          <div class="brand-title">Grand Livre</div>
+          <div class="brand-sub" id="brandSub">Suivi Degiro</div>
+        </div>
+      </div>
+      <div class="uploads">
+        <button class="upload-btn" id="btnPortfolio">↑ Portefeuille</button>
+        <button class="upload-btn" id="btnTransactions">↑ Transactions</button>
+        <button class="upload-btn" id="btnCompte">↑ Compte (dividendes)</button>
+        <input type="file" id="inputPortfolio" accept=".csv" style="display:none" />
+        <input type="file" id="inputTransactions" accept=".csv" style="display:none" />
+        <input type="file" id="inputCompte" accept=".csv" style="display:none" />
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-label">Valeur totale du portefeuille</div>
+      <div class="hero-value" id="heroValue">—</div>
+      <div class="hero-row">
+        <div><div class="hero-stat-label">Capital investi</div><div class="hero-stat-value" id="statInvested">—</div></div>
+        <div><div class="hero-stat-label">Plus/moins-value latente</div><div class="hero-stat-value" id="statPnl">—</div></div>
+        <div><div class="hero-stat-label">Frais cumulés</div><div class="hero-stat-value" id="statFees">—</div></div>
+        <div><div class="hero-stat-label">Dividendes reçus</div><div class="hero-stat-value" id="statDiv">—</div></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="performance">Performance</button>
+      <button class="tab-btn" data-tab="repartition">Répartition</button>
+      <button class="tab-btn" data-tab="positions">Positions</button>
+      <button class="tab-btn" data-tab="analyse">Analyse</button>
+      <button class="tab-btn" data-tab="dividendes">Dividendes</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="performance">
+      <div class="card">
+        <div class="card-title">Évolution de la valeur</div>
+        <div id="perfChartWrap" class="chart-wrap"><div id="perfChart" style="width:100%;height:100%;"></div></div>
+        <div id="perfEmpty" class="empty" style="display:none;">
+          <div class="empty-title">Un seul relevé pour l'instant</div>
+          <div>Reviens régulièrement importer ton export "Portefeuille" — chaque import ajoute un point à cette courbe.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Résumé</div>
+        <table class="ledger"><tbody>
+          <tr><td class="product-name">Réalisé (positions vendues)</td><td class="num" id="sumRealized">—</td></tr>
+          <tr><td class="product-name">Latent (positions en cours)</td><td class="num" id="sumUnrealized">—</td></tr>
+          <tr><td class="product-name">Total transactions enregistrées</td><td class="num" id="sumTxCount">—</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="repartition">
+      <div class="card">
+        <div class="card-title">Par ligne</div>
+        <div class="chart-wrap"><div id="pieByPosition" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div></div>
+        <div class="legend" id="legendByPosition"></div>
+        <div class="card-title" style="margin-top:22px;">Par catégorie</div>
+        <div class="chart-wrap small"><div id="pieByCategory" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div></div>
+        <div class="legend" id="legendByCategory"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="positions">
+      <div class="card">
+        <div class="card-title">Ligne par ligne</div>
+        <table class="ledger">
+          <thead><tr>
+            <th>Produit</th><th>Cat.</th><th class="num">Qté</th><th class="num">Prix moyen</th>
+            <th class="num">Valeur</th><th class="num">P&amp;L</th><th class="num">P&amp;L %</th>
+          </tr></thead>
+          <tbody id="positionsBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Évolution d'une ligne</div>
+        <div style="margin-bottom:14px;">
+          <select id="positionSelect" style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; background:var(--card-2); border:1px solid var(--hair); color:var(--ink); border-radius:4px; padding:7px 10px; width:100%; max-width:340px;"></select>
+        </div>
+        <div id="positionChartWrap" class="chart-wrap"><div id="positionChart" style="width:100%;height:100%;"></div></div>
+        <div id="positionChartEmpty" class="empty" style="display:none;">
+          <div class="empty-title">Pas encore assez d'historique</div>
+          <div>Cette courbe se construit à chaque réimport de ton export "Portefeuille" — un seul relevé pour l'instant sur cette ligne.</div>
+        </div>
+        <div id="positionTxMarkers" class="legend" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="analyse">
+      <div class="card">
+        <div class="card-title">Concentration</div>
+        <div id="analysisMetrics" style="display:flex; gap:28px; flex-wrap:wrap; margin-bottom:18px;"></div>
+        <table class="ledger">
+          <thead><tr><th>Produit</th><th>Cat.</th><th class="num">Poids</th><th>Repère</th></tr></thead>
+          <tbody id="concentrationBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Simulateur de versement</div>
+        <div style="margin-bottom:16px; font-family:'IBM Plex Sans',sans-serif; font-size:12.5px; color:var(--ink-dim);">
+          Fixe une cible en % pour chaque ligne (les cibles par défaut reprennent tes poids actuels — modifie-les selon ta stratégie), entre le montant que tu comptes verser, et l'appli calcule comment le répartir pour te rapprocher de ces cibles. Le calcul est mécanique, basé uniquement sur les chiffres que tu fixes toi-même.
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+          <label for="investAmount" style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.5px;">Montant à verser</label>
+          <input id="investAmount" type="number" min="0" step="10" value="100"
+            style="font-family:'IBM Plex Mono',monospace; font-size:14px; background:var(--card-2); border:1px solid var(--hair); color:var(--ink); border-radius:4px; padding:6px 10px; width:110px;" />
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dim);">€</span>
+          <span id="targetSumWarning" style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; margin-left:auto;"></span>
+        </div>
+        <table class="ledger">
+          <thead><tr><th>Produit</th><th class="num">Poids actuel</th><th class="num">Cible %</th><th class="num">À verser</th></tr></thead>
+          <tbody id="rebalanceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="dividendes">
+      <div class="card">
+        <div class="card-title">Dividendes reçus</div>
+        <div id="divEmpty" class="empty">
+          <div class="empty-title">Pas encore de données</div>
+          <div>Importe ton export "Compte" Degiro (bouton en haut) pour que les lignes de dividendes soient détectées automatiquement. La détection cherche le mot "Dividende" dans la description — vérifie le résultat, le format exact de cet export n'a pas encore été confirmé.</div>
+        </div>
+        <table class="ledger" id="divTable" style="display:none;">
+          <thead><tr><th>Produit</th><th class="num">Brut</th><th class="num">Impôts</th><th class="num">Net</th></tr></thead>
+          <tbody id="divBody"></tbody>
+        </table>
+        <div id="divTotal" style="margin-top:14px; font-family:'IBM Plex Mono', monospace; display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function () {
+  const PALETTE = ["#D4A94E", "#8AAF95", "#C97456", "#7B9BBF", "#B39AC7", "#D9C08A", "#6FAE87", "#B98268"];
+
+  const SEED_PORTFOLIO_CSV = `Produit,Ticker/ISIN,Quantité,Clôture,Devise,,Montant en EUR
+CASH & CASH FUND & FTX CASH (EUR),,,,EUR,"3,48","3,48"
+AGEAS SA/NV,BE0974264930,1,"73,40",EUR,"73,40","73,40"
+AMUNDI CORE MSCI EMERGING MARKET...,LU2573966905,1,"64,11",EUR,"64,11","64,11"
+BOOKING HOLDINGS INC.,US09857L1089,1,"213,36",USD,"213,36","182,91"
+ISHARES CORE MSCI EM IMI UCITS E...,IE00BKM4GZ66,6,"46,56",EUR,"279,37","279,37"
+ISHARES CORE MSCI WORLD UCITS ET...,IE00B4L5Y983,6,"126,23",EUR,"757,38","757,38"
+ISHARES PHYSICAL GOLD ETC,IE00B4ND3602,2,"77,52",EUR,"155,03","155,03"
+MICROSOFT CORPORATION,US5949181045,1,"487,31",USD,"487,31","417,77"
+"TEMPUS AI, INC. CLASS A",US88023B1035,4,"66,17",USD,"264,68","226,91"`;
+
+  const SEED_TRANSACTIONS_CSV = `Date,Heure,Produit,Code ISIN,Place boursière sectionnée,Lieu d'exécution,Quantité,Cours,,Montant devise locale,,Montant EUR,Taux de change,Frais conversion AutoFX,Frais de courtage et/ou de parties,Montant négocié EUR,ID Ordre
+13-08-2026,16:09,ISHARES CORE MSCI WORLD UCITS ETF USD (ACC),IE00B4L5Y983,EAM,XAMS,1,"129,7100",EUR,"-129,71",EUR,"-129,71",,"0,00","-3,00","-132,71",adbaa5f2-be94-488a-a0aa-58bb5721d411
+24-07-2026,17:14,ISHARES CORE MSCI EM IMI UCITS ETF USD ACC,IE00BKM4GZ66,TDG,XGAT,1,"45,9740",EUR,"-45,97",EUR,"-45,97",,"0,00","-1,00","-46,97",b01716f3-35a5-407b-8a9f-7264dfa014f9
+04-06-2026,15:30,"TEMPUS AI, INC. CLASS A",US88023B1035,NDQ,XNAS,4,"46,9900",USD,"-187,96",USD,"-161,53","1,1636","-0,40","-2,00","-163,94",81b5655a-eb25-453b-8188-9efd93f26ee7
+15-05-2026,07:53,ISHARES CORE MSCI EM IMI UCITS ETF USD ACC,IE00BKM4GZ66,TDG,XGAT,3,"46,1799",EUR,"-138,54",EUR,"-138,54",,"0,00","-1,00","-139,54",67a0b636-e993-4020-b8b8-c8c4effc817d
+27-04-2026,09:04,ISHARES CORE MSCI WORLD UCITS ETF USD (ACC),IE00B4L5Y983,EAM,XAMS,2,"116,8250",EUR,"-233,65",EUR,"-233,65",,"0,00","-3,00","-236,65",abbc1fbd-8108-4295-9e81-8bdd02f78f04
+17-04-2026,07:32,ISHARES PHYSICAL GOLD ETC,IE00B4ND3602,TDG,XGAT,2,"78,6620",EUR,"-157,32",EUR,"-157,32",,"0,00","-1,00","-158,32",c569110b-1abe-4eb5-9982-1f5909d1f0e2
+09-04-2026,20:50,BOOKING HOLDINGS INC.,US09857L1089,NDQ,SOHO,1,"175,2600",USD,"-175,26",USD,"-149,80","1,1700","-0,37","-2,00","-152,17",4d7b5fab-1a5b-426b-8c92-0a29c828d1c5
+09-04-2026,07:35,ISHARES CORE MSCI EM IMI UCITS ETF USD ACC,IE00BKM4GZ66,TDG,XGAT,2,"42,1799",EUR,"-84,36",EUR,"-84,36",,"0,00","-1,00","-85,36",ea206541-bee5-463d-8f61-52afdade175a
+08-04-2026,16:30,AMUNDI CORE MSCI EMERGING MARKETS SWAP UCITS DIST ETF,LU2573966905,XET,XETA,1,"57,9980",EUR,"-58,00",EUR,"-58,00",,"0,00","-3,00","-61,00",d07bed30-d419-4424-81d5-db16e73e482c
+08-04-2026,15:30,MICROSOFT CORPORATION,US5949181045,NDQ,XNAS,1,"385,0000",USD,"-385,00",USD,"-328,95","1,1704","-0,82","-2,00","-331,77",0f4261b1-d500-4f4b-8d40-f5ded2e37ffe
+07-04-2026,09:04,ISHARES CORE MSCI WORLD UCITS ETF USD (ACC),IE00B4L5Y983,EAM,XAMS,3,"110,6200",EUR,"-331,86",EUR,"-331,86",,"0,00","-3,00","-334,86",79ccf3b7-d9a3-4c2d-87b6-1e9fecf58fe8
+07-04-2026,09:00,AGEAS SA/NV,BE0974264930,EBR,XBRU,1,"65,0000",EUR,"-65,00",EUR,"-65,00",,"0,00","-4,90","-69,90",f06f4ea1-8654-4172-baaa-427b60eadd93`;
+
+const SEED_COMPTE_CSV = `Date,Heure,Date de,Produit,Code ISIN,Description,FX,Mouvements,,Solde,,ID Ordre
+01-07-2026,08:04,30-06-2026,BOOKING HOLDINGS INC.,US09857L1089,Dividende,,USD,"0,42",USD,"0,36",
+01-07-2026,08:04,30-06-2026,BOOKING HOLDINGS INC.,US09857L1089,Impôts sur dividende,,USD,"-0,06",USD,"-0,06",
+12-06-2026,07:13,11-06-2026,MICROSOFT CORPORATION,US5949181045,Dividende,,USD,"0,91",USD,"0,77",
+12-06-2026,07:12,11-06-2026,MICROSOFT CORPORATION,US5949181045,Impôts sur dividende,,USD,"-0,14",USD,"-0,14",
+08-06-2026,07:39,05-06-2026,AGEAS SA/NV,BE0974264930,Impôts sur dividende,,EUR,"-0,68",EUR,"46,51",
+08-06-2026,07:39,05-06-2026,AGEAS SA/NV,BE0974264930,Dividende,,EUR,"2,25",EUR,"47,19",`;
+
+  function parseCSVLine(line) {
+    const out = []; let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur);
+    return out;
+  }
+  function parseCSV(text) {
+    return text.split(/\r?\n/).filter(l => l.trim().length > 0).map(parseCSVLine);
+  }
+  function num(s) {
+    if (s === undefined || s === null || s === "") return 0;
+    const v = parseFloat(String(s).replace(/\s/g, "").replace(",", "."));
+    return isNaN(v) ? 0 : v;
+  }
+  function fmtEUR(v) {
+    return new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(v || 0);
+  }
+  function fmtPct(v) {
+    if (v === null || v === undefined || !isFinite(v)) return "—";
+    return (v >= 0 ? "+" : "") + v.toFixed(2) + " %";
+  }
+  function categorize(name) {
+    const n = (name || "").toUpperCase();
+    if (n.includes("CASH")) return "Cash";
+    if (n.includes("GOLD")) return "Matières premières";
+    if (n.includes("ETF") || n.includes("UCITS")) return "ETF";
+    return "Actions";
+  }
+  function parsePortfolioRows(text) {
+    return parseCSV(text).slice(1).map(r => ({
+      produit: (r[0] || "").trim(), isin: (r[1] || "").trim(), qty: num(r[2]),
+      cloture: num(r[3]), devise: (r[4] || "").trim(), montantLocal: num(r[5]), montantEUR: num(r[6]),
+    })).filter(r => r.produit);
+  }
+  function parseTransactionRows(text) {
+    return parseCSV(text).slice(1).map(r => ({
+      date: (r[0] || "").trim(), produit: (r[2] || "").trim(), isin: (r[3] || "").trim(),
+      qty: Math.abs(num(r[6])), montantEUR: num(r[11]),
+      fraisConv: Math.abs(num(r[13])), fraisCourtage: Math.abs(num(r[14])),
+      montantNegocieEUR: num(r[15]),
+      idOrdre: (r[16] || "").trim() || `${r[0]}-${r[2]}-${r[6]}-${r[7]}`,
+    })).filter(t => t.produit);
+  }
+
+  // Compte export columns: Date,Heure,Date de,Produit,Code ISIN,Description,FX,Mouvements(devise),(montant),Solde(devise),(solde),ID Ordre
+  function parseCompteRows(text) {
+    return parseCSV(text).slice(1).map(r => ({
+      date: (r[0] || "").trim(),
+      produit: (r[3] || "").trim(),
+      isin: (r[4] || "").trim(),
+      description: (r[5] || "").trim(),
+      devise: (r[7] || "").trim(),
+      montant: num(r[8]),
+    })).filter(r => r.description);
+  }
+
+  function computeDividends(rows) {
+    const map = {};
+    rows.forEach(r => {
+      const desc = r.description.toLowerCase();
+      const isDividend = desc === "dividende";
+      const isTax = desc.indexOf("imp") === 0 && desc.indexOf("dividende") > -1;
+      if (!isDividend && !isTax) return;
+      const produit = r.produit || "Autre";
+      const key = produit + "|" + r.devise;
+      if (!map[key]) map[key] = { produit, devise: r.devise, gross: 0, tax: 0 };
+      if (isDividend) map[key].gross += r.montant; else map[key].tax += r.montant;
+    });
+    return Object.values(map).map(d => Object.assign({}, d, { net: d.gross + d.tax }))
+      .sort((a, b) => b.net - a.net);
+  }
+
+  function fmtCur(v, cur) {
+    try { return new Intl.NumberFormat("fr-BE", { style: "currency", currency: cur || "EUR", maximumFractionDigits: 2 }).format(v || 0); }
+    catch { return fmtEUR(v); }
+  }
+
+  function ddmmyyyyToISO(d) {
+    const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(d || "");
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : (d || "");
+  }
+
+  let state = { portfolio: [], transactions: [], snapshots: [], dividends: [], lastUpdate: null };
+  let charts = {};
+  let userTargets = {}; // isin -> target percent, user-editable, persisted
+
+  function showToast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg; el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 3000);
+  }
+
+  function computePositions() {
+    const agg = {};
+    state.transactions.forEach(t => {
+      if (!t.isin) return;
+      if (!agg[t.isin]) agg[t.isin] = { qtyBought: 0, costBought: 0, qtySold: 0, proceedsSold: 0, frais: 0 };
+      const a = agg[t.isin];
+      a.frais += t.fraisConv + t.fraisCourtage;
+      if (t.montantNegocieEUR < 0) { a.qtyBought += t.qty; a.costBought += Math.abs(t.montantNegocieEUR); }
+      else if (t.montantNegocieEUR > 0) { a.qtySold += t.qty; a.proceedsSold += t.montantNegocieEUR; }
+    });
+    let cashRow = null;
+    const pos = [];
+    state.portfolio.forEach(row => {
+      if (!row.isin) { cashRow = row; return; }
+      const a = agg[row.isin];
+      const avgCost = a && a.qtyBought > 0 ? a.costBought / a.qtyBought : null;
+      const costBasis = avgCost !== null ? avgCost * row.qty : null;
+      const pnl = costBasis !== null ? row.montantEUR - costBasis : null;
+      const pnlPct = costBasis ? (pnl / costBasis) * 100 : null;
+      pos.push(Object.assign({}, row, { avgCost, costBasis, pnl, pnlPct, category: categorize(row.produit) }));
+    });
+    const totalValue = state.portfolio.reduce((s, r) => s + r.montantEUR, 0);
+    const totalCostBasis = pos.reduce((s, p) => s + (p.costBasis || 0), 0);
+    const totalPnl = pos.reduce((s, p) => s + (p.pnl || 0), 0);
+    const totalPnlPct = totalCostBasis ? (totalPnl / totalCostBasis) * 100 : null;
+    const totalFrais = state.transactions.reduce((s, t) => s + t.fraisConv + t.fraisCourtage, 0);
+    const realized = Object.values(agg).reduce((s, a) => {
+      if (a.qtySold > 0 && a.qtyBought > 0) {
+        const avgCost = a.costBought / a.qtyBought;
+        return s + (a.proceedsSold - avgCost * a.qtySold);
+      }
+      return s;
+    }, 0);
+    pos.sort((a, b) => b.montantEUR - a.montantEUR);
+    return { positions: pos, cash: cashRow, totals: { totalValue, totalCostBasis, totalPnl, totalPnlPct, totalFrais, realized } };
+  }
+
+  function render() {
+    const { positions, cash, totals } = computePositions();
+    const pnlPositive = totals.totalPnl >= 0;
+
+    document.getElementById("brandSub").textContent = "Suivi Degiro" + (state.lastUpdate ? " · MAJ " + state.lastUpdate : "");
+    document.getElementById("heroValue").textContent = fmtEUR(totals.totalValue);
+    document.getElementById("statInvested").textContent = fmtEUR(totals.totalCostBasis);
+    const pnlEl = document.getElementById("statPnl");
+    pnlEl.innerHTML = (pnlPositive ? "▲ " : "▼ ") + fmtEUR(totals.totalPnl) + " (" + fmtPct(totals.totalPnlPct) + ")";
+    pnlEl.className = "hero-stat-value " + (pnlPositive ? "pos" : "neg");
+    document.getElementById("statFees").textContent = fmtEUR(totals.totalFrais);
+    const totalsByCurrency = {};
+    state.dividends.forEach(d => { totalsByCurrency[d.devise] = (totalsByCurrency[d.devise] || 0) + d.net; });
+    const totalDivStr = Object.keys(totalsByCurrency).length
+      ? Object.entries(totalsByCurrency).map(([cur, v]) => fmtCur(v, cur)).join(" + ")
+      : fmtEUR(0);
+    document.getElementById("statDiv").textContent = totalDivStr;
+
+    document.getElementById("sumRealized").textContent = fmtEUR(totals.realized);
+    const unrealEl = document.getElementById("sumUnrealized");
+    unrealEl.textContent = fmtEUR(totals.totalPnl);
+    unrealEl.className = "num " + (pnlPositive ? "pos" : "neg");
+    document.getElementById("sumTxCount").textContent = state.transactions.length;
+
+    // Positions table
+    let rows = positions.map(p => `
+      <tr>
+        <td><div class="product-name">${p.produit}</div><div class="isin">${p.isin}</div></td>
+        <td><span class="cat-tag">${p.category}</span></td>
+        <td class="num">${p.qty}</td>
+        <td class="num">${p.avgCost !== null ? fmtEUR(p.avgCost) : "—"}</td>
+        <td class="num">${fmtEUR(p.montantEUR)}</td>
+        <td class="num ${p.pnl >= 0 ? "pos" : "neg"}">${p.pnl !== null ? fmtEUR(p.pnl) : "—"}</td>
+        <td class="num ${p.pnl >= 0 ? "pos" : "neg"}">${fmtPct(p.pnlPct)}</td>
+      </tr>`).join("");
+    if (cash) {
+      rows += `<tr><td><div class="product-name">Liquidités</div></td><td><span class="cat-tag">Cash</span></td>
+        <td class="num">—</td><td class="num">—</td><td class="num">${fmtEUR(cash.montantEUR)}</td>
+        <td class="num">—</td><td class="num">—</td></tr>`;
+    }
+    document.getElementById("positionsBody").innerHTML = rows;
+
+    // Per-line evolution chart
+    try { renderPositionEvolution(positions); } catch (e) { console.error("position evolution error", e); }
+
+    // Analysis tab (concentration + rebalancing simulator)
+    try { renderAnalysis(positions, cash, totals); } catch (e) { console.error("analysis error", e); }
+
+    // Dividends
+    const divEmpty = document.getElementById("divEmpty");
+    const divTable = document.getElementById("divTable");
+    const divTotalEl = document.getElementById("divTotal");
+    if (state.dividends.length === 0) {
+      divEmpty.style.display = "block"; divTable.style.display = "none"; divTotalEl.style.display = "none";
+    } else {
+      divEmpty.style.display = "none"; divTable.style.display = "table"; divTotalEl.style.display = "block";
+      document.getElementById("divBody").innerHTML = state.dividends.map(d =>
+        `<tr><td class="product-name">${d.produit}</td>
+         <td class="num pos">${fmtCur(d.gross, d.devise)}</td>
+         <td class="num neg">${fmtCur(d.tax, d.devise)}</td>
+         <td class="num pos">${fmtCur(d.net, d.devise)}</td></tr>`).join("");
+      const byCur = {};
+      state.dividends.forEach(d => { byCur[d.devise] = (byCur[d.devise] || 0) + d.net; });
+      const totalStr = Object.entries(byCur).map(([cur, v]) => fmtCur(v, cur)).join(" + ");
+      divTotalEl.innerHTML = "Total net : <span class='pos'>" + totalStr + "</span>";
+    }
+
+    // Charts are rendered separately (see renderCharts) so a chart error
+    // never blocks the table/dividends updates above.
+    renderCharts(positions, cash, totals);
+  }
+
+  // ---- Hand-rolled SVG charts (no external library, can't silently fail to load) ----
+  function svgDoughnut(data, size, thickness) {
+    const total = data.reduce((s, d) => s + d.value, 0) || 1;
+    const r = (size - thickness) / 2;
+    const c = 2 * Math.PI * r;
+    const cx = size / 2, cy = size / 2;
+    let cumulative = 0;
+    let circles = "";
+    const gap = data.length > 1 ? 2.5 : 0;
+    data.forEach(d => {
+      const dash = Math.max((d.value / total) * c - gap, 0);
+      const rotation = (cumulative / total) * 360 - 90;
+      circles += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${thickness}"
+        stroke-dasharray="${dash} ${c - dash}" transform="rotate(${rotation} ${cx} ${cy})"
+        stroke-linecap="round">
+        <title>${d.label} : ${fmtEUR(d.value)}</title></circle>`;
+      cumulative += d.value;
+    });
+    return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="max-width:100%;">${circles}</svg>`;
+  }
+
+  function svgLineChart(snapshots, width, height) {
+    const pad = 32;
+    const values = snapshots.map(s => s.totalValue);
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    const stepX = snapshots.length > 1 ? (width - 2 * pad) / (snapshots.length - 1) : 0;
+    const points = snapshots.map((s, i) => {
+      const x = pad + i * stepX;
+      const y = height - pad - ((s.totalValue - min) / range) * (height - 2 * pad);
+      return { x, y, s };
+    });
+    const path = points.map((p, i) => (i === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ");
+    const area = path + ` L ${points[points.length - 1].x.toFixed(1)},${height - pad} L ${points[0].x.toFixed(1)},${height - pad} Z`;
+    const dots = points.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="#D4A94E"><title>${p.s.date} : ${fmtEUR(p.s.totalValue)}</title></circle>`).join("");
+    const firstLabel = `<text x="${points[0].x}" y="${height - 8}" fill="#B3A99B" font-size="10.5" font-family="IBM Plex Mono, monospace" text-anchor="start">${points[0].s.date}</text>`;
+    const lastLabel = `<text x="${points[points.length - 1].x}" y="${height - 8}" fill="#B3A99B" font-size="10.5" font-family="IBM Plex Mono, monospace" text-anchor="end">${points[points.length - 1].s.date}</text>`;
+    const maxLabel = `<text x="${pad}" y="14" fill="#B3A99B" font-size="10.5" font-family="IBM Plex Mono, monospace">${fmtEUR(max)}</text>`;
+    const minLabel = `<text x="${pad}" y="${height - pad + 14}" fill="#B3A99B" font-size="10.5" font-family="IBM Plex Mono, monospace">${fmtEUR(min)}</text>`;
+    return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+      <path d="${area}" fill="rgba(212,169,78,0.14)" stroke="none"/>
+      <path d="${path}" fill="none" stroke="#D4A94E" stroke-width="2"/>
+      ${dots}${firstLabel}${lastLabel}${maxLabel}${minLabel}
+    </svg>`;
+  }
+
+  // ---- Concentration analysis + rebalancing simulator ----
+  function renderAnalysis(positions, cash, totals) {
+    const total = totals.totalValue || 1;
+    // Herfindahl-Hirschman index on all lines incl. cash (weights as fractions of 1)
+    const weights = positions.map(p => p.montantEUR / total).concat(cash ? [cash.montantEUR / total] : []);
+    const hhi = weights.reduce((s, w) => s + w * w, 0);
+    const effectiveN = hhi > 0 ? 1 / hhi : 0;
+    const stockWeight = positions.filter(p => p.category === "Actions").reduce((s, p) => s + p.montantEUR, 0) / total * 100;
+
+    document.getElementById("analysisMetrics").innerHTML = `
+      <div><div class="hero-stat-label">Positions effectives</div><div class="hero-stat-value">${effectiveN.toFixed(1)} <span style="color:var(--ink-dim); font-size:11px;">/ ${positions.length + (cash ? 1 : 0)} lignes</span></div></div>
+      <div><div class="hero-stat-label">Actions individuelles (hors ETF)</div><div class="hero-stat-value">${stockWeight.toFixed(1)} %</div></div>
+      <div><div class="hero-stat-label">Plus grosse ligne</div><div class="hero-stat-value">${positions[0] ? (positions[0].montantEUR / total * 100).toFixed(1) + " % · " + positions[0].produit.slice(0, 22) : "—"}</div></div>
+    `;
+
+    const concRows = positions.map(p => {
+      const w = (p.montantEUR / total) * 100;
+      const flag = w >= 15 ? `<span class="neg">Concentration élevée</span>` : (w >= 8 ? `<span style="color:var(--brass);">À surveiller</span>` : `<span style="color:var(--ink-dim);">—</span>`);
+      return `<tr><td><div class="product-name">${p.produit}</div></td><td><span class="cat-tag">${p.category}</span></td><td class="num">${w.toFixed(1)} %</td><td>${flag}</td></tr>`;
+    }).join("");
+    document.getElementById("concentrationBody").innerHTML = concRows;
+
+    // Rebalancing simulator table — only (re)build rows if the set of lines changed,
+    // so typing in an input doesn't get interrupted by a full rebuild.
+    const tbody = document.getElementById("rebalanceBody");
+    const allLines = positions.map(p => ({ key: p.isin, label: p.produit, value: p.montantEUR }))
+      .concat(cash ? [{ key: "__cash__", label: "Liquidités", value: cash.montantEUR }] : []);
+    const existingKeys = Array.from(tbody.querySelectorAll("tr")).map(tr => tr.dataset.key);
+    const sameSet = existingKeys.length === allLines.length && allLines.every(l => existingKeys.includes(l.key));
+
+    if (!sameSet) {
+      tbody.innerHTML = allLines.map(l => {
+        const currentPct = (l.value / total) * 100;
+        const target = userTargets[l.key] !== undefined ? userTargets[l.key] : currentPct;
+        return `<tr data-key="${l.key}">
+          <td class="product-name">${l.label}</td>
+          <td class="num">${currentPct.toFixed(1)} %</td>
+          <td class="num"><input type="number" min="0" max="100" step="0.5" class="target-input" data-key="${l.key}" value="${target.toFixed(1)}"
+            style="width:70px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:12.5px; background:var(--card-2); border:1px solid var(--hair); color:var(--ink); border-radius:3px; padding:4px 6px;" /></td>
+          <td class="num" data-suggest="${l.key}">—</td>
+        </tr>`;
+      }).join("");
+    }
+    recomputeRebalance(allLines, total);
+  }
+
+  function recomputeRebalance(allLines, total) {
+    const investAmount = num(document.getElementById("investAmount").value) || 0;
+    const targetInputs = document.querySelectorAll(".target-input");
+    let sumTargets = 0;
+    const targets = {};
+    targetInputs.forEach(inp => {
+      const v = parseFloat(inp.value) || 0;
+      targets[inp.dataset.key] = v;
+      sumTargets += v;
+    });
+
+    const desiredTotal = total + investAmount;
+    let gaps = {};
+    let totalGap = 0;
+    allLines.forEach(l => {
+      const targetValue = desiredTotal * ((targets[l.key] || 0) / 100);
+      const gap = Math.max(targetValue - l.value, 0);
+      gaps[l.key] = gap;
+      totalGap += gap;
+    });
+    allLines.forEach(l => {
+      const cell = document.querySelector(`[data-suggest="${l.key}"]`);
+      if (!cell) return;
+      const amount = totalGap > 0 ? (gaps[l.key] / totalGap) * investAmount : 0;
+      cell.textContent = investAmount > 0 ? fmtEUR(amount) : "—";
+    });
+
+    const warnEl = document.getElementById("targetSumWarning");
+    if (Math.abs(sumTargets - 100) > 0.5) {
+      warnEl.textContent = `Somme des cibles : ${sumTargets.toFixed(1)} % (vise 100 %)`;
+      warnEl.className = "neg";
+    } else {
+      warnEl.textContent = `Somme des cibles : ${sumTargets.toFixed(1)} %`;
+      warnEl.className = "";
+      warnEl.style.color = "var(--ink-dim)";
+    }
+
+    // persist targets as the user adjusts them
+    userTargets = targets;
+    storageSet("targets", targets);
+  }
+
+  // ---- Per-line evolution (value of a single holding across snapshots) ----
+  let selectedPositionIsin = null;
+
+  function renderPositionEvolution(positions) {
+    const select = document.getElementById("positionSelect");
+    const options = positions.filter(p => p.isin);
+    if (options.length === 0) { select.innerHTML = "<option>—</option>"; return; }
+    if (!selectedPositionIsin || !options.some(p => p.isin === selectedPositionIsin)) {
+      selectedPositionIsin = options[0].isin;
+    }
+    select.innerHTML = options.map(p =>
+      `<option value="${p.isin}" ${p.isin === selectedPositionIsin ? "selected" : ""}>${p.produit}</option>`).join("");
+    drawPositionChart(selectedPositionIsin);
+  }
+
+  function drawPositionChart(isin) {
+    const wrap = document.getElementById("positionChartWrap");
+    const empty = document.getElementById("positionChartEmpty");
+    const series = state.snapshots
+      .filter(s => s.positions && s.positions[isin] !== undefined)
+      .map(s => ({ date: s.date, totalValue: s.positions[isin] }));
+
+    if (series.length > 1) {
+      wrap.style.display = "block"; empty.style.display = "none";
+      document.getElementById("positionChart").innerHTML = svgLineChart(series, 680, 220);
+    } else {
+      wrap.style.display = "none"; empty.style.display = "block";
+    }
+
+    // Show this line's buy/sell history underneath as reference points
+    const txs = state.transactions.filter(t => t.isin === isin).sort((a, b) => ddmmyyyyToISO(a.date).localeCompare(ddmmyyyyToISO(b.date)));
+    document.getElementById("positionTxMarkers").innerHTML = txs.map(t => {
+      const isBuy = t.montantNegocieEUR < 0;
+      return `<div class="legend-item"><span class="swatch" style="background:${isBuy ? "#6FAE87" : "#C97456"}"></span>${t.date} · ${isBuy ? "Achat" : "Vente"} ${t.qty} · ${fmtEUR(Math.abs(t.montantNegocieEUR))}</div>`;
+    }).join("") || `<div style="color:var(--ink-dim); font-family:'IBM Plex Mono',monospace; font-size:11.5px;">Aucune transaction enregistrée pour cette ligne.</div>`;
+  }
+
+  document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "positionSelect") {
+      selectedPositionIsin = e.target.value;
+      drawPositionChart(selectedPositionIsin);
+    }
+  });
+
+  function renderCharts(positions, cash, totals) {
+    // Performance chart
+    try {
+      const perfWrap = document.getElementById("perfChartWrap");
+      const perfEmpty = document.getElementById("perfEmpty");
+      if (state.snapshots.length > 1) {
+        perfWrap.style.display = "block"; perfEmpty.style.display = "none";
+        document.getElementById("perfChart").innerHTML = svgLineChart(state.snapshots, 680, 240);
+      } else {
+        perfWrap.style.display = "none"; perfEmpty.style.display = "block";
+      }
+    } catch (e) { console.error("perf chart error", e); }
+
+    // Doughnut by position
+    try {
+      const posLabels = positions.map(p => p.produit).concat(cash ? ["Cash"] : []);
+      const posValues = positions.map(p => p.montantEUR).concat(cash ? [cash.montantEUR] : []);
+      const posColors = positions.map((_, i) => PALETTE[i % PALETTE.length]).concat(cash ? ["#4E6B5C"] : []);
+      const data = posLabels.map((label, i) => ({ label, value: posValues[i], color: posColors[i] }));
+      document.getElementById("pieByPosition").innerHTML = svgDoughnut(data, 220, 30);
+      document.getElementById("legendByPosition").innerHTML = data.map(d =>
+        `<div class="legend-item"><span class="swatch" style="background:${d.color}"></span>${d.label}</div>`).join("");
+    } catch (e) { console.error("position doughnut error", e); }
+
+    // Doughnut by category
+    try {
+      const catMap = {};
+      positions.forEach(p => { catMap[p.category] = (catMap[p.category] || 0) + p.montantEUR; });
+      if (cash) catMap["Cash"] = (catMap["Cash"] || 0) + cash.montantEUR;
+      const catLabels = Object.keys(catMap);
+      const catColors = catLabels.map((_, i) => PALETTE[i % PALETTE.length]);
+      const data = catLabels.map((label, i) => ({ label, value: catMap[label], color: catColors[i] }));
+      document.getElementById("pieByCategory").innerHTML = svgDoughnut(data, 200, 28);
+      document.getElementById("legendByCategory").innerHTML = data.map(d =>
+        `<div class="legend-item"><span class="swatch" style="background:${d.color}"></span>${d.label} (${((d.value / totals.totalValue) * 100).toFixed(0)}%)</div>`).join("");
+    } catch (e) { console.error("category doughnut error", e); }
+  }
+
+  const LS_PREFIX = "grand-livre:";
+  async function storageGet(key) {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  async function storageSet(key, value) {
+    try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); }
+    catch (e) { console.error("Stockage local plein ou indisponible", e); }
+  }
+
+  async function init() {
+    const tx = await storageGet("transactions") || [];
+    const snaps = await storageGet("snapshots") || [];
+    const div = await storageGet("dividends") || [];
+    const meta = await storageGet("meta");
+    userTargets = await storageGet("targets") || {};
+
+    if (tx.length === 0 && (!meta || !meta.portfolio || meta.portfolio.length === 0)) {
+      const pf = parsePortfolioRows(SEED_PORTFOLIO_CSV);
+      const txSeed = parseTransactionRows(SEED_TRANSACTIONS_CSV);
+      const divSeed = computeDividends(parseCompteRows(SEED_COMPTE_CSV));
+      const today = new Date().toISOString().slice(0, 10);
+      const snapsSeed = [{ date: today, totalValue: pf.reduce((s, r) => s + r.montantEUR, 0), positions: Object.fromEntries(pf.filter(r => r.isin).map(r => [r.isin, r.montantEUR])) }];
+      state = { portfolio: pf, transactions: txSeed, snapshots: snapsSeed, dividends: divSeed, lastUpdate: today };
+      await storageSet("transactions", txSeed);
+      await storageSet("snapshots", snapsSeed);
+      await storageSet("dividends", divSeed);
+      await storageSet("meta", { portfolio: pf, lastUpdate: today });
+    } else {
+      state = { portfolio: meta ? meta.portfolio : [], transactions: tx, snapshots: snaps, dividends: div, lastUpdate: meta ? meta.lastUpdate : null };
+    }
+    render();
+  }
+
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add("active");
+    });
+  });
+
+  document.getElementById("btnPortfolio").addEventListener("click", () => document.getElementById("inputPortfolio").click());
+  document.getElementById("btnTransactions").addEventListener("click", () => document.getElementById("inputTransactions").click());
+  document.getElementById("btnCompte").addEventListener("click", () => document.getElementById("inputCompte").click());
+
+  // Rebalancing simulator: recompute live as the user types, without a full re-render
+  document.getElementById("investAmount").addEventListener("input", () => {
+    const { positions, cash, totals } = computePositions();
+    const allLines = positions.map(p => ({ key: p.isin, label: p.produit, value: p.montantEUR }))
+      .concat(cash ? [{ key: "__cash__", label: "Liquidités", value: cash.montantEUR }] : []);
+    recomputeRebalance(allLines, totals.totalValue);
+  });
+  document.getElementById("rebalanceBody").addEventListener("input", (e) => {
+    if (!e.target.classList.contains("target-input")) return;
+    const { positions, cash, totals } = computePositions();
+    const allLines = positions.map(p => ({ key: p.isin, label: p.produit, value: p.montantEUR }))
+      .concat(cash ? [{ key: "__cash__", label: "Liquidités", value: cash.montantEUR }] : []);
+    recomputeRebalance(allLines, totals.totalValue);
+  });
+
+  document.getElementById("inputPortfolio").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+    const pf = parsePortfolioRows(text);
+    const today = new Date().toISOString().slice(0, 10);
+    const totalValue = pf.reduce((s, r) => s + r.montantEUR, 0);
+    const positionsSnapshot = Object.fromEntries(pf.filter(r => r.isin).map(r => [r.isin, r.montantEUR]));
+    state.snapshots = state.snapshots.filter(s => s.date !== today)
+      .concat([{ date: today, totalValue, positions: positionsSnapshot }])
+      .sort((a, b) => a.date.localeCompare(b.date));
+    state.portfolio = pf; state.lastUpdate = today;
+    await storageSet("snapshots", state.snapshots);
+    await storageSet("meta", { portfolio: pf, lastUpdate: today });
+    showToast("Portefeuille mis à jour ✓");
+    render(); e.target.value = "";
+  });
+
+  document.getElementById("inputTransactions").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+    const newTx = parseTransactionRows(text);
+    const byId = new Map(state.transactions.map(t => [t.idOrdre, t]));
+    newTx.forEach(t => byId.set(t.idOrdre, t));
+    state.transactions = Array.from(byId.values());
+    await storageSet("transactions", state.transactions);
+    showToast(`Transactions mises à jour ✓ (${state.transactions.length} au total)`);
+    render(); e.target.value = "";
+  });
+
+  document.getElementById("inputCompte").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const text = await file.text();
+    const rows = parseCompteRows(text);
+    const divs = computeDividends(rows);
+    state.dividends = divs;
+    await storageSet("dividends", state.dividends);
+    showToast(divs.length ? `${divs.length} ligne(s) de dividendes trouvée(s) ✓` : "Aucun dividende détecté dans ce fichier");
+    render(); e.target.value = "";
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
